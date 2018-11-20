@@ -9,6 +9,7 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+        var recorder: HYAudioRecorder = HYAudioRecorder()
 
         // Example of a call to a native method
         sample_text.text = stringFromJNI()
