@@ -3,11 +3,11 @@ package com.hyuan.mediarecorder
 import android.media.MediaCodec
 import android.media.MediaCodecInfo
 import android.media.MediaFormat
-import java.io.ByteArrayOutputStream
+import android.media.MediaMuxer
 import java.io.IOException
 import java.nio.ByteBuffer
 
-class AACEncoder:Runnable{
+class AACEncoder{
     private val TAG: String = "AACEncoder"
     private val BIT_RATE: Int = 96000
     private val MAX_INPUT_SIZE: Int = 1024 * 1024
@@ -15,14 +15,19 @@ class AACEncoder:Runnable{
 
     private lateinit var mMediaCodec: MediaCodec
     private var mMediaType: String = "OMX.goole.aac.encoder"
+    private var mMuxer: MediaMuxer? = null
 
-    private lateinit var mOutputBuffers: ByteBuffer
-    private lateinit var mBufferInfo: MediaCodec.BufferInfo
     private var mPresentationTimeUs: Long = 0
 
-    private var outputStream: ByteArrayOutputStream = ByteArrayOutputStream()
+    private var mTrackIndex: Int = -1
+    private var mIsMuxerStart = false
+    private var mIsRecording = false
 
-    init {
+    constructor(muxer: MediaMuxer) {
+        mMuxer = muxer
+    }
+
+    fun prepare() {
         try {
             mMediaCodec = MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_AUDIO_AAC);
         } catch (e: IOException) {
@@ -38,12 +43,15 @@ class AACEncoder:Runnable{
             setInteger(MediaFormat.KEY_BIT_RATE, BIT_RATE)
             setInteger(MediaFormat.KEY_MAX_INPUT_SIZE, MAX_INPUT_SIZE)
         }
-
         mMediaCodec.configure(mediaFormat, null, null,MediaCodec.CONFIGURE_FLAG_ENCODE)
-        mMediaCodec.start()
     }
 
-    fun drainEncoder(inputByte: ByteArray):ByteArray {
+    fun start() {
+        mMediaCodec.start()
+        mIsRecording = true
+    }
+
+    fun drainEncoder(inputByte: ByteArray) {
         var inputBufferIndex = mMediaCodec.dequeueInputBuffer(-1)
         if (inputBufferIndex >= 0) {
             var inputBuffer: ByteBuffer = mMediaCodec.getInputBuffer(inputBufferIndex)
@@ -55,35 +63,48 @@ class AACEncoder:Runnable{
             mMediaCodec.queueInputBuffer(inputBufferIndex, 0, inputByte.size, pts, 0)
             mPresentationTimeUs++
         }
+        var bufferInfo = MediaCodec.BufferInfo()
+        while (mIsRecording) {
+            var bufferIndex = mMediaCodec.dequeueOutputBuffer(bufferInfo, 10000)
+            if (bufferIndex == MediaCodec.BUFFER_FLAG_END_OF_STREAM) {
+                mIsRecording = false
+                break
+            } else if (bufferIndex == MediaCodec.INFO_TRY_AGAIN_LATER) {
+                continue
+            } else if (bufferIndex == MediaCodec.BUFFER_FLAG_CODEC_CONFIG) {
+                bufferInfo.size = 0
+            } else if (bufferIndex == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
+                if (mIsMuxerStart) {
+                    throw RuntimeException("format change twice!")
+                }
+                var mediaFormat = mMediaCodec.getOutputFormat(bufferIndex)
+                mTrackIndex = mMuxer!!.addTrack(mediaFormat)
+                mMuxer!!.start()
+                mIsMuxerStart = true
+            }
 
-        var outputBufferIndex = mMediaCodec.dequeueOutputBuffer(mBufferInfo, 0)
+            if (bufferInfo.size > 0) {
+                var outputBuffer: ByteBuffer = mMediaCodec.getOutputBuffer(bufferIndex)
 
-        while (outputBufferIndex >= 0) {
-            var outBitsSize: Int = mBufferInfo.size
-            var outPacketSize: Int = outBitsSize + ADTS_SIZE
-            var outputBuffer: ByteBuffer = mMediaCodec.getOutputBuffer(outputBufferIndex)
+                outputBuffer.position(bufferInfo.offset)
+                outputBuffer.limit(bufferInfo.offset + bufferInfo.size)
+                mMuxer!!.writeSampleData(mTrackIndex, outputBuffer, bufferInfo)
+            }
 
-            outputBuffer.position(mBufferInfo.offset)
-            outputBuffer.limit(mBufferInfo.offset + outBitsSize)
+            mMediaCodec.releaseOutputBuffer(bufferIndex, false)
 
-            var outData: ByteArray = ByteArray(outPacketSize)
-            addADTStoPacket(outData, outPacketSize)
-
-            outputBuffer.get(outData, 7, outBitsSize)
-            outputBuffer.position(mBufferInfo.offset)
-
-            outputStream.write(outData)
-
-            mMediaCodec.releaseOutputBuffer(outputBufferIndex, false)
-            outputBufferIndex = mMediaCodec.dequeueOutputBuffer(mBufferInfo, 0)
+            //var outPacketSize: Int = bufferInfo.size + ADTS_SIZE
+//            var outData: ByteArray = ByteArray(outPacketSize)
+//            addADTStoPacket(outData, outPacketSize)
+//
+//            outputBuffer.get(outData, 7, outBitsSize)
+//            outputBuffer.position(mBufferInfo.offset)
         }
+    }
 
-        var out: ByteArray = outputStream.toByteArray()
-
-        outputStream.flush()
-        outputStream.reset()
-
-        return out
+    fun stop() {
+        mIsRecording = false
+        mMediaCodec.stop()
     }
 
     private fun computePts(frameIndex: Long): Long {
@@ -104,7 +125,4 @@ class AACEncoder:Runnable{
         packet[6] = 0xFC.toByte()
     }
 
-    override fun run() {
-        TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
-    }
 }
