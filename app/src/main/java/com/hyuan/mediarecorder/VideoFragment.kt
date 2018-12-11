@@ -62,7 +62,7 @@ class VideoFragment: Fragment(), View.OnClickListener,
     }
     private val surfaceTextureListener = object : TextureView.SurfaceTextureListener{
         override fun onSurfaceTextureSizeChanged(surface: SurfaceTexture?, width: Int, height: Int) {
-            openCamera(width, height)
+            configureTransform(width, height)
         }
 
         override fun onSurfaceTextureUpdated(surface: SurfaceTexture?) = Unit
@@ -70,7 +70,7 @@ class VideoFragment: Fragment(), View.OnClickListener,
         override fun onSurfaceTextureDestroyed(surface: SurfaceTexture?) = true
 
         override fun onSurfaceTextureAvailable(surface: SurfaceTexture?, width: Int, height: Int) {
-            configureTransform(width, height)
+            openCamera(width, height)
         }
     }
     private lateinit var textureView: AutoFitTextureView
@@ -236,6 +236,7 @@ class VideoFragment: Fragment(), View.OnClickListener,
             }
             configureTransform(width, height)
             mediaRecorder = MediaRecorder()
+            hyMediaRecorder = HYMediaRecorder()
             manager.openCamera(cameraId, stateCallback, null)
         } catch (e: CameraAccessException) {
             showToast("Cannot access the camera.")
@@ -413,6 +414,7 @@ class VideoFragment: Fragment(), View.OnClickListener,
                             isRecordingVideo = true
                             mediaRecorder?.start()
                         })
+                        hyMediaRecorder?.start()
                     }
                 }, backgroundHandler)
         } catch (e: CameraAccessException) {
