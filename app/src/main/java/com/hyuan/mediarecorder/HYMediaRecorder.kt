@@ -22,8 +22,8 @@ class HYMediaRecorder {
     private var BIT_RATE = 2000000
 
     private var mVideoCodec: MediaCodec? = null
-    private var mAudioCodec: MediaCodec? = null
-    private var mSurface: Surface? = null
+    private var mHYAudioRecorder: HYAudioRecorder? = null
+    private lateinit var mSurface: Surface
     private var mMediaMuxer: MediaMuxer? = null
     private var mIsRecording = false
     private var mFilePath = "";
@@ -51,14 +51,16 @@ class HYMediaRecorder {
         }
         mVideoCodec!!.configure(mediaFormat, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
         mSurface = mVideoCodec!!.createInputSurface()
+
+        mHYAudioRecorder = HYAudioRecorder(mMediaMuxer!!)
     }
 
-    fun getSurface(): Surface?{
+    fun getSurface(): Surface{
         return mSurface
     }
 
     fun start(){
-
+        mHYAudioRecorder!!.startRecord()
         mVideoCodec!!.start()
         mIsRecording = true
 
@@ -117,18 +119,15 @@ class HYMediaRecorder {
     }
 
     fun stop() {
-        if (mVideoCodec != null && mIsRecording) {
-            mIsRecording = false
-            mVideoCodec!!.stop()
-            mVideoCodec!!.release()
-            mVideoCodec = null
-        }
-
-        if (mMediaMuxer != null) {
-            mMediaMuxer!!.stop()
-            mMediaMuxer!!.release()
-            mMediaMuxer = null
-        }
+        mHYAudioRecorder?.stopRecord()
+        mHYAudioRecorder = null
+        mVideoCodec?.stop()
+        mVideoCodec?.release()
+        mVideoCodec = null
+        mMediaMuxer?.stop()
+        mMediaMuxer?.release()
+        mMediaMuxer = null
+        mIsRecording = false
     }
 
 }

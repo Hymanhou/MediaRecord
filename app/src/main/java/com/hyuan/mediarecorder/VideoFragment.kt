@@ -106,20 +106,9 @@ class VideoFragment: Fragment(), View.OnClickListener,
         }
     }
 
-    private var mediaCodec: MediaCodec? = null
     private var nextVideoAbsolutePath: String? = null
     private var mediaRecorder: MediaRecorder? = null
-    private var imageReader: ImageReader? = null
-    val imageReaderListener = object : ImageReader.OnImageAvailableListener{
-        override fun onImageAvailable(reader: ImageReader?) {
-            val image = reader!!.acquireLatestImage()
-            if (ImageFormat.NV21 == image.format){
-                val plans = image.planes
-                val ybuffer = plans[0].buffer
-                ImageFormat.YUV_420_888
-            }
-        }
-    }
+    private var hyMediaRecorder: HYMediaRecorder? = null
 
     override fun onCreateView(inflater: LayoutInflater,
                               container: ViewGroup?, savedInstanceState: Bundle?): View? {
@@ -240,7 +229,6 @@ class VideoFragment: Fragment(), View.OnClickListener,
             sensorOrientation = characteristics.get(SENSOR_ORIENTATION)
             videoSize = chooseVideoSize(map.getOutputSizes(MediaRecorder::class.java))
             previewSize = chooseOptimalSize(map.getOutputSizes(SurfaceTexture::class.java), width, height, videoSize)
-            imageReader = ImageReader.newInstance(width, height, ImageFormat.NV21, 2);
             if (resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE) {
                 textureView.setAspectRatio(previewSize.width, previewSize.height)
             } else {
@@ -268,8 +256,8 @@ class VideoFragment: Fragment(), View.OnClickListener,
             cameraDevice = null
             mediaRecorder?.release()
             mediaRecorder = null
-            imageReader?.close()
-            imageReader = null
+            hyMediaRecorder?.stop()
+            hyMediaRecorder = null
         } catch (e: InterruptedException) {
             throw RuntimeException("Interrupted while trying to lock camera closing.", e)
         } finally {
@@ -371,6 +359,9 @@ class VideoFragment: Fragment(), View.OnClickListener,
             setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
             prepare()
         }
+        hyMediaRecorder?.setFilePath(nextVideoAbsolutePath + ".mine")
+        hyMediaRecorder?.setSize(videoSize.width, videoSize.height)
+        hyMediaRecorder?.prepare()
     }
 
     private fun getVideoFilePath(context: Context?): String {
@@ -396,19 +387,17 @@ class VideoFragment: Fragment(), View.OnClickListener,
 
             val previewSurface = Surface(texture)
             val recordSurface = mediaRecorder!!.surface
-            val imageSurface = imageReader!!.surface;
+            val hySurface = hyMediaRecorder!!.getSurface()
             val surfaces = ArrayList<Surface>().apply {
                 add(previewSurface)
                 add(recordSurface)
-                add(imageSurface)
+                add(hySurface)
             }
             previewRequestBuilder = cameraDevice!!.createCaptureRequest(TEMPLATE_RECORD).apply {
                 addTarget(previewSurface)
                 addTarget(recordSurface)
-                addTarget(imageSurface)
+                addTarget(hySurface)
             }
-
-
 
             cameraDevice?.createCaptureSession(surfaces,
                 object : CameraCaptureSession.StateCallback(){

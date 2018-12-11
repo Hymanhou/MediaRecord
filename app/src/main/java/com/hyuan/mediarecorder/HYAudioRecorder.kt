@@ -15,61 +15,36 @@ class HYAudioRecorder {
 
     private val TAG = "HYAudioRecorder"
 
-    private var mAudioRecorder:AudioRecord? = null
+    private lateinit var mAudioRecorder:AudioRecord
     private var mAudioTrack:AudioTrack? = null
-    private lateinit var mAudioData: ByteArray
-    private lateinit var mFileInputStream: FileInputStream
     private var mIsRecording: Boolean = false
     private val mExecutorService: ExecutorService
+    private var mAACEncoder: AACEncoder
 
-    init {
+    constructor(muxer: MediaMuxer) {
         mExecutorService = Executors.newCachedThreadPool()
+        mAACEncoder = AACEncoder(muxer)
     }
 
-    fun startRecord(fileName: String) {
+    fun startRecord() {
         val minBufferSize = AudioRecord.getMinBufferSize(SAMPLE_RATE, CHANNEL_CONFIG, AUDIO_FORMAT)
         mAudioRecorder = AudioRecord(
             MediaRecorder.AudioSource.MIC, SAMPLE_RATE, CHANNEL_CONFIG,
             AUDIO_FORMAT, minBufferSize
         )
 
-        val data = ByteArray(minBufferSize)
-        val file = File(fileName)
-        if (!file.mkdirs()) {
-            Log.e(TAG, "directory not created.")
-        }
-        if (file.exists()) {
-            file.delete()
-        }
+        var data = ByteArray(minBufferSize)
 
-        mAudioRecorder!!.startRecording()
+        mAudioRecorder.startRecording()
+        mAACEncoder.prepare()
+        mAACEncoder.start()
         mIsRecording = true
 
         mExecutorService.execute {
-            var outStream: FileOutputStream? = null
-            try {
-                outStream = FileOutputStream(file)
-            } catch (e: FileNotFoundException) {
-                Log.e(TAG, "file not exist!")
-            }
-
-            if (outStream != null) {
-                while (mIsRecording) {
-                    val readBytes = mAudioRecorder!!.read(data, 0, minBufferSize)
-                    if (AudioRecord.ERROR_INVALID_OPERATION != readBytes) {
-                        try {
-                            outStream.write(data)
-                        } catch (e: IOException) {
-                            e.printStackTrace()
-                        }
-                    }
-                    try {
-                        Log.e(TAG, "close output file.")
-                        outStream.close()
-                    } catch (e: IOException) {
-                        e.printStackTrace()
-                    }
-
+            while (mIsRecording) {
+                val readBytes = mAudioRecorder.read(data, 0, minBufferSize)
+                if (AudioRecord.ERROR_INVALID_OPERATION != readBytes) {
+                    mAACEncoder.drainEncoder(data)
                 }
             }
         }
@@ -78,13 +53,12 @@ class HYAudioRecorder {
     fun stopRecord() {
         mIsRecording = false
         if (mAudioRecorder != null) {
-            mAudioRecorder!!.stop()
-            mAudioRecorder!!.release()
-            mAudioRecorder = null
+            mAudioRecorder.stop()
+            mAudioRecorder.release()
         }
     }
 
-    fun playPcm(fileName: String) {
+    fun playPcm(inputStream: InputStream) {
         val channelConfig = AudioFormat.CHANNEL_OUT_MONO
         val minBufferSize = AudioTrack.getMinBufferSize(SAMPLE_RATE, channelConfig, AUDIO_FORMAT)
         mAudioTrack = AudioTrack(
@@ -100,7 +74,6 @@ class HYAudioRecorder {
         mAudioTrack!!.play()
 
         try {
-            val inputStream = FileInputStream(File(fileName))
             mExecutorService.execute {
                 try {
                     val inBuffer = ByteArray(minBufferSize)

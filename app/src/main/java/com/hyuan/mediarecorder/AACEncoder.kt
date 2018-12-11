@@ -1,9 +1,6 @@
 package com.hyuan.mediarecorder
 
-import android.media.MediaCodec
-import android.media.MediaCodecInfo
-import android.media.MediaFormat
-import android.media.MediaMuxer
+import android.media.*
 import java.io.IOException
 import java.nio.ByteBuffer
 
@@ -14,8 +11,7 @@ class AACEncoder{
     private val ADTS_SIZE: Int = 7
 
     private lateinit var mMediaCodec: MediaCodec
-    private var mMediaType: String = "OMX.goole.aac.encoder"
-    private var mMuxer: MediaMuxer? = null
+    private var mMuxer: MediaMuxer
 
     private var mPresentationTimeUs: Long = 0
 
@@ -44,6 +40,8 @@ class AACEncoder{
             setInteger(MediaFormat.KEY_MAX_INPUT_SIZE, MAX_INPUT_SIZE)
         }
         mMediaCodec.configure(mediaFormat, null, null,MediaCodec.CONFIGURE_FLAG_ENCODE)
+
+
     }
 
     fun start() {
@@ -78,8 +76,8 @@ class AACEncoder{
                     throw RuntimeException("format change twice!")
                 }
                 var mediaFormat = mMediaCodec.getOutputFormat(bufferIndex)
-                mTrackIndex = mMuxer!!.addTrack(mediaFormat)
-                mMuxer!!.start()
+                mTrackIndex = mMuxer.addTrack(mediaFormat)
+                mMuxer.start()
                 mIsMuxerStart = true
             }
 
@@ -88,7 +86,7 @@ class AACEncoder{
 
                 outputBuffer.position(bufferInfo.offset)
                 outputBuffer.limit(bufferInfo.offset + bufferInfo.size)
-                mMuxer!!.writeSampleData(mTrackIndex, outputBuffer, bufferInfo)
+                mMuxer.writeSampleData(mTrackIndex, outputBuffer, bufferInfo)
             }
 
             mMediaCodec.releaseOutputBuffer(bufferIndex, false)
