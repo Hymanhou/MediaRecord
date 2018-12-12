@@ -2,6 +2,7 @@ package com.hyuan.mediarecorder
 
 import android.media.*
 import java.io.IOException
+import java.lang.Exception
 import java.nio.ByteBuffer
 
 class AACEncoder{
@@ -31,7 +32,7 @@ class AACEncoder{
         }
 
         var mediaFormat: MediaFormat = MediaFormat.createAudioFormat(MediaFormat.MIMETYPE_AUDIO_AAC, SAMPLE_RATE,
-            CHANNEL_CONFIG)
+            2)
 
         mediaFormat.apply {
             setString(MediaFormat.KEY_MIME, MediaFormat.MIMETYPE_AUDIO_AAC)
@@ -39,7 +40,12 @@ class AACEncoder{
             setInteger(MediaFormat.KEY_BIT_RATE, BIT_RATE)
             setInteger(MediaFormat.KEY_MAX_INPUT_SIZE, MAX_INPUT_SIZE)
         }
-        mMediaCodec.configure(mediaFormat, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
+        try {
+            mMediaCodec.configure(mediaFormat, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+
 
 
     }

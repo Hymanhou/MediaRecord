@@ -413,8 +413,9 @@ class VideoFragment: Fragment(), View.OnClickListener,
                             videoButton.setText(R.string.stop)
                             isRecordingVideo = true
                             mediaRecorder?.start()
+                            hyMediaRecorder?.start()
                         })
-                        hyMediaRecorder?.start()
+
                     }
                 }, backgroundHandler)
         } catch (e: CameraAccessException) {
