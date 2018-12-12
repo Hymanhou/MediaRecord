@@ -69,7 +69,7 @@ class HYMediaRecorder {
             var bufferInfo = MediaCodec.BufferInfo()
             var muxerStart = false;
             while (mIsRecording) {
-                var bufferIndex = mVideoCodec!!.dequeueOutputBuffer(bufferInfo, 10000)
+                var bufferIndex = mVideoCodec!!.dequeueOutputBuffer(bufferInfo, 10)
                 if (bufferIndex == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
                     if (muxerStart) {
                         throw RuntimeException("format changed twice")
