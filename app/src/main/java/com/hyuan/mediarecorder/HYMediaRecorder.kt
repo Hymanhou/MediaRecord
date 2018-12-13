@@ -13,13 +13,13 @@ class HYMediaRecorder {
 
     private val TAG = "HYMediaRecorder"
 
-    private val MIME_TYPE = "video/avc"
-    private val FRAME_RATE = 30
-    private val I_FRAME_INTERVAL = 10
+    private val MIME_TYPE = MediaFormat.MIMETYPE_VIDEO_AVC
+    private val FRAME_RATE = 24
+    private val I_FRAME_INTERVAL = 1
 
     private var VIDEO_WIDTH = 320
     private var VIDEO_HEIGHT = 240
-    private var BIT_RATE = 2000000
+    private var BIT_RATE = 256000
 
     private var mVideoCodec: MediaCodec? = null
     private var mHYAudioRecorder: HYAudioRecorder? = null
@@ -121,9 +121,13 @@ class HYMediaRecorder {
     fun stop() {
         mHYAudioRecorder?.stopRecord()
         mHYAudioRecorder = null
+
+        mVideoCodec?.signalEndOfInputStream()
+        while (mIsRecording);
         mVideoCodec?.stop()
         mVideoCodec?.release()
         mVideoCodec = null
+
         mMediaMuxer?.stop()
         mMediaMuxer?.release()
         mMediaMuxer = null
